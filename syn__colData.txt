@@ -1,0 +1,13 @@
+condition
+F83        HU_No_Ex_WT_No_recovery        
+F85	   HU_No_Ex_WT_No_recovery
+F87	   HU_No_Ex_WT_No_recovery
+F101	   NL_No_Ex_WT_No_recovery
+F105	   NL_No_Ex_WT_No_recovery
+F109	   NL_No_Ex_WT_No_recovery
+F121	   HU_Ex_WT_No_recovery
+F125	   HU_Ex_WT_No_recovery
+F127	   HU_Ex_WT_No_recovery
+F145	   NL_Ex_WT_No_recovery
+F143	   NL_Ex_WT_No_recovery
+F147       NL_Ex_WT_No_recovery
