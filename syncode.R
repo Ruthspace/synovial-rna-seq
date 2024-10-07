@@ -890,6 +890,259 @@ if (length(results_list) > 0) {
 
 
 
+#################### noah code for heatmap
+
+
+# Read the data
+# Replace 'your_file.txt' with the actual name of your file
+# Load count matrix
+Data <- read.csv("C:/Users/epige/OneDrive/Documents/Synovial-rnaseq/Syn_ gene_count.csv", header=T, row.names=1)
+# Load required libraries
+# Ensure Data is a matrix
+Data <- as.matrix(Data)
+
+# Log2 transform the data (add a small value to avoid log(0))
+data_log <- log2(Data + 1)
+
+# Calculate Z-scores for each row
+data_z <- t(scale(t(data_log)))
+
+# Create annotation data frame
+annotation_df <- data.frame(
+  Sample = c("F83", "F85", "F87", "F101", "F105", "F109", "F121", "F125", "F127", "F145", "F143", "F147"),
+  Group = c("HU_No_Ex", "HU_No_Ex", "HU_No_Ex",
+            "NL_No_Ex", "NL_No_Ex", "NL_No_Ex",
+            "HU_Ex", "HU_Ex", "HU_Ex",
+            "NL_Ex", "NL_Ex", "NL_Ex")
+)
+rownames(annotation_df) <- annotation_df$Sample
+
+# Split the Group into separate columns
+annotation_df <- annotation_df %>%
+  separate(Group, c("Condition", "Exercise"), sep = "_")
+
+# Define colors for annotation
+ann_colors <- list(
+  Condition = c(HU = "#E41A1C", NL = "#4DAF4A"),
+  Exercise = c(Ex = "#377EB8", No = "#FF7F00")
+)
+
+# Create the heatmap
+heatmap <- pheatmap(data_z,
+                    color = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlBu")))(100),
+                    show_rownames = FALSE,  # Hide row names due to potentially large number of genes
+                    cluster_cols = TRUE,    # Cluster columns (samples)
+                    cluster_rows = TRUE,    # Cluster rows (genes)
+                    main = "Gene Expression Heatmap",
+                    fontsize = 10,
+                    cellwidth = 15,
+                    cellheight = 0.5,       # Adjust this value based on the number of genes
+                    filename = "gene_expression_heatmap.png",
+                    width = 10,
+                    height = 12)
+
+# If you want to display the heatmap in R as well
+print(heatmap)
+
+# Optional: Create a heatmap with top variable genes
+# Optional: Create a heatmap with top variable genes
+# Calculate variance of each gene
+gene_variance <- apply(data_z, 1, var)
+top_variable_genes <- names(sort(gene_variance, decreasing = TRUE)[1:50])  # Top 100 most variable genes
+
+# Create heatmap with top variable genes
+heatmap_top <- pheatmap(data_z[top_variable_genes,],
+                        color = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlBu")))(100),
+                        show_rownames = TRUE,  # Show row names for top genes
+                        cluster_cols = TRUE,
+                        cluster_rows = TRUE,
+                        annotation_col = annotation_df,
+                        annotation_colors = ann_colors,
+                        main = "Top 100 Variable Genes Heatmap",
+                        fontsize = 8,
+                        cellwidth = 15,
+                        cellheight = 10,
+                        filename = "top_variable_genes_heatmap.png",
+                        width = 16,
+                        height = 18)
+
+print(heatmap_top)
+
+# Save the data used for the heatmap
+write.csv(data_z, "heatmap_data.csv")
+
+
+
+####### calculating group averages and plotting heatmap
+
+# Load count matrix
+data <- read.csv("C:/Users/epige/OneDrive/Documents/Synovial-rnaseq/Syn_ gene_count.csv", header=T, row.names=1)
+
+# Create a named vector for the mapping
+old_to_new_names <- c(
+  "F83" = "HU_No_Ex", "F85" = "HU_No_Ex", "F87" = "HU_No_Ex",
+  "F101" = "NL_No_Ex", "F105" = "NL_No_Ex", "F109" = "NL_No_Ex",
+  "F121" = "HU_Ex", "F125" = "HU_Ex", "F127" = "HU_Ex",
+  "F145" = "NL_Ex", "F143" = "NL_Ex", "F147" = "NL_Ex"
+)
+
+# Create a new dataframe for means
+Data_mean <- data.frame(row.names = rownames(data))
+
+# Calculate means for each group
+for (group in unique(old_to_new_names)) {
+  cols <- names(old_to_new_names)[old_to_new_names == group]
+  Data_mean[[paste0(group, "_Mean")]] <- rowMeans(data[, cols, drop = FALSE])
+}
+
+# Add the mean columns to the original dataframe
+data <- cbind(data, Data_mean)
+
+# Check the new structure
+str(data)
+
+# Print the names of the new mean columns
+print(names(Data_mean))
+
+# Create a named vector for the mapping
+old_to_new_names <- c(
+  "F83" = "HU_No_Ex", "F85" = "HU_No_Ex", "F87" = "HU_No_Ex",
+  "F101" = "NL_No_Ex", "F105" = "NL_No_Ex", "F109" = "NL_No_Ex",
+  "F121" = "HU_Ex", "F125" = "HU_Ex", "F127" = "HU_Ex",
+  "F145" = "NL_Ex", "F143" = "NL_Ex", "F147" = "NL_Ex"
+)
+
+# Rename the columns
+names(data) <- ifelse(names(data) %in% names(old_to_new_names), 
+                      old_to_new_names[names(data)], 
+                      names(data))
+# Using base R
+Data_mean <- data[, (ncol(data) - 3):ncol(data)]
+
+# use the Data_means frame to make heatmap
+
+# Log2 transform the data (add a small value to avoid log(0))
+data_log <- log2(Data_mean + 1)
+
+# Calculate Z-scores for each row
+data_z <- t(scale(t(data_log)))
+
+# Select top 50 most variable genes
+gene_variance <- apply(data_z, 1, var)
+top_50_genes <- names(sort(gene_variance, decreasing = TRUE)[1:50])
+data_z_top50 <- data_z[top_50_genes,]
+
+# Create annotation for the columns
+annotation_col <- data.frame(
+  Group = sub("_Mean", "", colnames(Data_mean)),
+  Condition = substr(colnames(Data_mean), 1, 2),
+  Exercise = ifelse(grepl("Ex", colnames(Data_mean)), "Ex", "No_Ex")
+)
+rownames(annotation_col) <- colnames(Data_mean)
+
+# Define colors for annotation
+ann_colors <- list(
+  Condition = c(HU = "#E41A1C", NL = "#4DAF4A"),
+  Exercise = c(Ex = "#377EB8", No_Ex = "#FF7F00")
+)
+
+# Create the heatmap
+heatmap <- pheatmap(data_z_top50,
+                    color = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlBu")))(100),
+                    show_rownames = TRUE,  # Show row names for top 50 genes
+                    cluster_cols = FALSE,  # Don't cluster columns as they are already means
+                    cluster_rows = TRUE,   # Cluster rows (genes)
+                    annotation_col = annotation_col,
+                    annotation_colors = ann_colors,
+                    main = "Top 50 Variable Genes Heatmap (Group Means)",
+                    fontsize = 8,
+                    cellwidth = 25,
+                    cellheight = 12,
+                    filename = "top_50_variable_genes_heatmap_group_means.png",
+                    width = 10,
+                    height = 16)
+
+# If you want to display the heatmap in R as well
+print(heatmap)
+
+# Save the data used for the heatmap
+write.csv(data_z_top50, "heatmap_data_top50_group_means.csv")
+
+# Save the data used for the heatmap
+write.csv(Data_mean, "synovial_group_means.csv")
+
+
+
+
+
+########################### trying new heatmap strategies
+# Load count matrix
+
+# Remove duplicate rows based on the first column
+heat <- heat[!duplicated(heat[,1]),]
+
+# Replace NA values in the first column with a placeholder
+heat[,1] <- make.names(as.character(heat[,1]), unique=TRUE)
+
+# Set row names and remove the first column
+rownames(heat) <- heat[,1]
+heat <- heat[,-1]
+
+# Log2 transform the data (add a small value to avoid log(0))
+heat_log <- log2(heat + 1)
+
+# Calculate Z-scores for each row
+heat_z <- t(scale(t(heat_log)))
+
+# Select top 50 most variable genes
+gene_variance <- apply(heat_z, 1, var)
+top_50_genes <- names(sort(gene_variance, decreasing = TRUE)[1:50])
+heat_z_top50 <- heat_z[top_50_genes,]
+
+# Create annotation for the columns
+annotation_col <- data.frame(
+  Group = colnames(heat),
+  Condition = substr(colnames(heat), 1, 2),
+  Exercise = ifelse(grepl("Ex", colnames(heat)), "Ex", "No_Ex")
+)
+rownames(annotation_col) <- colnames(heat)
+
+# Define colors for annotation
+ann_colors <- list(
+  Condition = c(HU = "#E41A1C", NL = "#4DAF4A"),
+  Exercise = c(Ex = "#377EB8", No_Ex = "#FF7F00")
+)
+
+# Create the heatmap
+heatmap <- pheatmap(heat_z_top50,
+                    color = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlBu")))(100),
+                    show_rownames = TRUE,  # Show row names for top 50 genes
+                    cluster_cols = FALSE,  # Don't cluster columns as they are already means
+                    cluster_rows = TRUE,   # Cluster rows (genes)
+                    annotation_col = annotation_col,
+                    annotation_colors = ann_colors,
+                    main = "Top 50 Variable Genes Heatmap for the (Group Means)",
+                    fontsize = 8,
+                    cellwidth = 25,
+                    cellheight = 12,
+                    filename = "top_50_variable_genes_heatmap_for_the_group_means.png",
+                    width = 10,
+                    height = 16)
+
+# If you want to display the heatmap in R as well
+print(heatmap)
+
+# Save the data used for the heatmap
+write.csv(heat_z_top50, "heatmap_data_top50_group_means_genes.csv")
+
+# Save the original mean data
+write.csv(heat, "synovial_group_means_genes.csv") 
+
+
+
+######################################################################################
+######### analysis with genes of interest
+
 
 
 
